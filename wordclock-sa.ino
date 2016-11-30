@@ -46,9 +46,10 @@ uint8_t hue = 0;
 const byte btnHour = 10;
 const byte btnMin = 11;
 const byte btnCol = 12;
-int valHour = 0;
-int valMin = 0;
-int valCol = 0;
+
+byte nightMode = 0;
+byte birthdayMode = 0;
+
 byte oldHourSwitchState = HIGH;
 byte oldMinSwitchState = HIGH;
 byte oldColSwitchState = HIGH;
@@ -57,9 +58,6 @@ const unsigned long colTime = 500;
 unsigned long switchHourPressTime;
 unsigned long switchMinPressTime;
 unsigned long switchColPressTime;
-
-
-
 
 
 // =========
@@ -85,8 +83,8 @@ byte bcdDec(byte val) {
 void configureTime() {
    // 1) Set the date and time values
    second       = 00; 
-   minute       = 24; 
-   hour         = 23;
+   minute       = 12; 
+   hour         = 5;
    weekDay      = 3;
    monthDay     = 30; // Ali 21/3 (1)  Sandy 4/10 (2)
    month        = 11; 
@@ -124,34 +122,91 @@ void requestTime()
   year          = bcdDec(Wire.read());
 
   // Print the date and time via serial monitor
-  Serial.print(hour, DEC);
-  Serial.print(":");
-  Serial.print(minute, DEC);
-  Serial.print(":");
-  Serial.print(second, DEC);
-  Serial.print("  ");
-  Serial.print(monthDay, DEC);
-  Serial.print("/");
-  Serial.print(month, DEC);
-  Serial.print("/");
-  Serial.print(year, DEC);
-  Serial.print("  ");
+//  Serial.print(hour, DEC);
+//  Serial.print(":");
+//  Serial.print(minute, DEC);
+//  Serial.print(":");
+//  Serial.print(second, DEC);
+//  Serial.print("  ");
+//  Serial.print(monthDay, DEC);
+//  Serial.print("/");
+//  Serial.print(month, DEC);
+//  Serial.print("/");
+//  Serial.print(year, DEC);
+//  Serial.print("  ");
 }
 
-void configureHour() {
+void configureHour() 
+{
   Wire.beginTransmission(DS1307_I2C_ADDRESS);
   Wire.write(0x00);
   Wire.endTransmission();
+  
+  // Call up the time and date
   Wire.requestFrom(DS1307_I2C_ADDRESS, 7);
-  hour = bcdDec(Wire.read() & 0x3f);
-  hour = ((hour + 1) % 24);
+  second        = bcdDec(Wire.read() & 0x7f);
+  minute        = bcdDec(Wire.read());
+  hour          = bcdDec(Wire.read() & 0x3f);
+  weekDay       = bcdDec(Wire.read());
+  monthDay      = bcdDec(Wire.read());
+  month         = bcdDec(Wire.read());
+  year          = bcdDec(Wire.read());
+
+  int newhour;
+  newhour = ((hour + 1) % 24);
+  hour = newhour;
+  
   Wire.beginTransmission(DS1307_I2C_ADDRESS);
   Wire.write(decBcd(hour));
   Wire.endTransmission();
+
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(0x00);
+  Wire.write(decBcd(second) & 0x7f);
+  Wire.write(decBcd(minute));
+  Wire.write(decBcd(hour) & 0x3f);
+  Wire.write(decBcd(weekDay));
+  Wire.write(decBcd(monthDay));
+  Wire.write(decBcd(month));
+  Wire.write(decBcd(year));
+  Wire.endTransmission(); 
 }
 
+void configureMinute() 
+{
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(0x00);
+  Wire.endTransmission();
+  
+  // Call up the time and date
+  Wire.requestFrom(DS1307_I2C_ADDRESS, 7);
+  second        = bcdDec(Wire.read() & 0x7f);
+  minute        = bcdDec(Wire.read());
+  hour          = bcdDec(Wire.read() & 0x3f);
+  weekDay       = bcdDec(Wire.read());
+  monthDay      = bcdDec(Wire.read());
+  month         = bcdDec(Wire.read());
+  year          = bcdDec(Wire.read());
 
+  int newminute;
+  newminute = ((minute + (5 - (minute % 5))) % 60);
+  minute = newminute;
+  
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(decBcd(minute));
+  Wire.endTransmission();
 
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(0x00);
+  Wire.write(decBcd(second) & 0x7f);
+  Wire.write(decBcd(minute));
+  Wire.write(decBcd(hour) & 0x3f);
+  Wire.write(decBcd(weekDay));
+  Wire.write(decBcd(monthDay));
+  Wire.write(decBcd(month));
+  Wire.write(decBcd(year));
+  Wire.endTransmission(); 
+}
 
 
 // =====================
@@ -184,16 +239,7 @@ int HTWELVE[6] = {109, 110, 111, 112, 113, 114};
 int ITIS[4] = {6, 7, 9, 10};
 int PAST[4] = {62, 63, 64, 65};
 int TO[2] = {60, 61};
-//int HBA[19] = {13, 14, 15, 16, 17, 50, 51, 52, 53, 54, 55, 56, 57, 78, 79, 80, 81, 82, 83};
-//int HBS[18] = {13, 14, 15, 16, 17, 50, 51, 52, 53, 54, 55, 56, 57, 72, 73, 74, 75, 76};
 int OCLOCK[6] = {137, 139, 140, 141, 142, 143};
-
-// int LEDSWHITE = {CRGB::White};
-// int LEDSRED = {CRGB::Red};
-// int LEDSCOLOUR = {CHSV(timehue,255,255)};
-
-
-
 
 
 // ===========
@@ -216,13 +262,9 @@ pinMode(btnCol, INPUT);
 
 
 
-
-
 // SET THE TIME. Comment out and reupload once the time is set.
 //configureTime(); 
 }
-
-
 
 void lightsOff() {
     for (int dot = 0; dot < NUM_LEDS; dot++) { 
@@ -234,14 +276,19 @@ void lightsOn(int word[], int len) {
     int x;
     for (int dot = 0; dot < len; dot++){
       x = word[dot];
-      leds[x] = CRGB::White;
-    }
+        if (nightMode == 0) {
+          leds[x] = CRGB::White;
+//        leds[x] = Palette
+          leds[x] |= 96;
+          }
+        else {
+          leds[x] = CRGB::Red;
+          leds[x] &= 1;
+      }
+   }
 }
 
-
-
-
-
+\
 // ==========
 // LOOP PHASE
 // ==========
@@ -252,7 +299,7 @@ void loop() {
 requestTime();
 
 //Send time to the monitor
-Serial.println(" ");
+//Serial.println(" ");
 
 //Kill unnecessary lights
 lightsOff();
@@ -350,10 +397,26 @@ if ((hour == 0) && (minute >= 35)) {  lightsOn(HONE, 3);}
 
 // BIRTHDAYS BABY
 // Sandy birthday
-if (monthDay == 4) {  if (month == 10) { static uint8_t hue=0; leds(72,76).fill_rainbow(hue++); leds(13,17).fill_rainbow(hue++); leds(50,57).fill_rainbow(hue++);}}
+if (monthDay == 4) 
+  {  if (month == 10) 
+    { static uint8_t hue=0; 
+      leds(72,76).fill_rainbow(hue++); 
+      leds(13,17).fill_rainbow(hue++); 
+      leds(50,57).fill_rainbow(hue++);
+      (birthdayMode = 1);
+    }
+  }
 
 // Ali birthday
-if (monthDay == 21) {  if (month == 3) { static uint8_t hue=0; leds(78,83).fill_rainbow(hue++); leds(13,17).fill_rainbow(hue++); leds(50,57).fill_rainbow(hue++);}}
+if (monthDay == 21) 
+  {  if (month == 3) 
+    { static uint8_t hue=0; 
+      leds(78,83).fill_rainbow(hue++); 
+      leds(13,17).fill_rainbow(hue++); 
+      leds(50,57).fill_rainbow(hue++);
+      (birthdayMode = 1);
+    }
+  }
 
 //LIGHTS ON
 FastLED.show();
@@ -362,89 +425,38 @@ FastLED.show();
 byte HourSwitchState = digitalRead (btnHour);
 if (HourSwitchState != oldHourSwitchState)
   { 
-    if (millis () - switchHourPressTime >= debounceTime)
-    {
-      switchHourPressTime = millis ();
-      oldHourSwitchState = HourSwitchState;
+    oldHourSwitchState = HourSwitchState;
       if (HourSwitchState == LOW)
-        {
-          configureHour();
-          Serial.println ("Hour switch pressed.");
-                    //INSERT: plus one hour        
-        }
+        { Serial.println ("Hour switch pressed."); }
       else
-        {
-          Serial.println ("Hour switch released.");
-        }
-    }
+        { configureHour();
+          Serial.println ("Hour switch released."); }
   }
+  
 
 //MINUTE BUTTON BABY
 byte MinSwitchState = digitalRead (btnMin);
 if (MinSwitchState != oldMinSwitchState)
   { 
-    if (millis () - switchMinPressTime >= debounceTime)
-    {
-      switchMinPressTime = millis ();
-      oldMinSwitchState = MinSwitchState;
+    oldMinSwitchState = MinSwitchState;
       if (MinSwitchState == LOW)
-        {
-          Serial.println ("Min switch pressed.");
-          
-          //INSERT: plus one minute
-          
-        }
-      else
-        {
-          Serial.println ("Min switch released.");
+        { Serial.println ("Min switch pressed."); }
+      else { configureMinute();
+             Serial.println ("Min switch released.");
         }
     }
-  }
+
 
 //COLOUR BUTTON BABY
 byte ColSwitchState = digitalRead (btnCol);
 if (ColSwitchState != oldColSwitchState)
   { 
-    if (millis () - switchColPressTime >= debounceTime)
-    {
-      switchColPressTime = millis ();
-      oldColSwitchState = ColSwitchState;
+    oldColSwitchState = ColSwitchState;
       if (ColSwitchState == LOW)
-        {
-          Serial.println ("Colour switch pressed.");
-          
-          // COLOUR SHIFTER / NIGHT MODE THING
-          
-          // if (switchColPressTime < colTime)
-          //  {
-          //    NIGHT MODE
-          //  }
-          // else
-          //  {
-          //     SLIDE THROUGH COLOUR PALETTE 
-          //  }  
-        }
-    }
+        { Serial.println ("Col switch pressed."); }
       else
-        {
-          Serial.println ("Colour switch released.");
-        }
-    }
-  }
-
-
-
-
-
-
-
-//SAHIL PSEUDOCODE
-//int btnHourPressed(){
-//   hour = (hour + 1) % 24 // In most languages % is modulus function (I think it's the same in C)
-//}
-//  // Again assuming global variable is 'minute' and it's an INT
-//int btnMinutePressed() {
-//  minute = ((minute + (5 - (minute % 5))) % 60)
-
-
-
+        if (nightMode == 0) 
+          { (nightMode = 1); }
+        else { (nightMode = 0); }
+                Serial.println ("Col switch released."); }
+}
