@@ -124,18 +124,30 @@ void requestTime()
   year          = bcdDec(Wire.read());
 
   // Print the date and time via serial monitor
-//  Serial.print(hour, DEC);
-//  Serial.print(":");
-//  Serial.print(minute, DEC);
-//  Serial.print(":");
-//  Serial.print(second, DEC);
-//  Serial.print("  ");
-//  Serial.print(monthDay, DEC);
-//  Serial.print("/");
-//  Serial.print(month, DEC);
-//  Serial.print("/");
-//  Serial.print(year, DEC);
-//  Serial.print("  ");
+  Serial.print(hour, DEC);
+  Serial.print(":");
+  Serial.print(minute, DEC);
+  Serial.print(":");
+  Serial.print(second, DEC);
+  Serial.print("  ");
+  Serial.print(monthDay, DEC);
+  Serial.print("/");
+  Serial.print(month, DEC);
+  Serial.print("/");
+  Serial.print(year, DEC);
+  Serial.print("  ");
+}
+
+void configureHour() {
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(0x00);
+  Wire.endTransmission();
+  Wire.requestFrom(DS1307_I2C_ADDRESS, 7);
+  hour = bcdDec(Wire.read() & 0x3f);
+  hour = ((hour + 1) % 24);
+  Wire.beginTransmission(DS1307_I2C_ADDRESS);
+  Wire.write(decBcd(hour));
+  Wire.endTransmission();
 }
 
 
@@ -240,7 +252,7 @@ void loop() {
 requestTime();
 
 //Send time to the monitor
-//Serial.println(" ");
+Serial.println(" ");
 
 //Kill unnecessary lights
 lightsOff();
@@ -356,10 +368,9 @@ if (HourSwitchState != oldHourSwitchState)
       oldHourSwitchState = HourSwitchState;
       if (HourSwitchState == LOW)
         {
+          configureHour();
           Serial.println ("Hour switch pressed.");
-          
-          //INSERT: plus one hour
-          
+                    //INSERT: plus one hour        
         }
       else
         {
@@ -424,7 +435,7 @@ if (ColSwitchState != oldColSwitchState)
 
 
 
-}
+
 
 
 //SAHIL PSEUDOCODE
